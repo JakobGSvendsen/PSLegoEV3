@@ -15,15 +15,14 @@ Function Connect-EV3 {
     #Init Robot
 
     #Dev hardcoded dll
-    [System.Reflection.Assembly]::LoadFrom("c:\DLLs\Lego.Ev3.NetCore.dll")
+    #[System.Reflection.Assembly]::LoadFrom("c:\DLLs\Lego.Ev3.NetCore.dll")
 
     
     $com = new-object Lego.Ev3.NetCore.NetworkCommunication -ArgumentList $IPAddress
-    $global:brick = new-object Lego.Ev3.Core.Brick -ArgumentList $com, $true
-    $result = $brick.ConnectAsync()
+    $script:brick = new-object Lego.Ev3.Core.Brick -ArgumentList $com, $true
+    $result = $brick.ConnectAsync().Result
 
-    While ($result.Status -eq "WaitingForActivation")
-    {
+    While ($result.Status -eq "WaitingForActivation") {
         Start-Sleep -Milliseconds 100
         $result.Status
 
@@ -46,7 +45,7 @@ Function Invoke-EV3StepMotor {
         [int] $RampDownSteps = 0,
         [Boolean] $Brake = $false
     )
-    $brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $true); 
+    $script:brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $true); 
 }
 
 #Invoke-EV3StepMotor -OutputPort "B" -Speed 100 -Steps 140 
@@ -54,82 +53,112 @@ Function Invoke-EV3StepMotor {
 
 Function Start-EV3LiveControl {
 
-    #Forward
-    Set-PSReadlineKeyHandler -key UpArrow -ScriptBlock {  Invoke-EV3Forward }
+    param(
+        [Parameter(Mandatory = $false,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 0)]
+        [ValidateSet("GRIPP3R")] #Current only supports gripper robot
+        $RobotType = "GRIPP3R"
+    )
+
+    switch ($RobotType) {
+        "GRIPP3R" {
+            #Forward
+            Set-PSReadlineKeyHandler -key UpArrow -ScriptBlock {  Invoke-EV3Forward }
         
-        #Backward
-        Set-PSReadlineKeyHandler -key DownArrow -ScriptBlock { Invoke-EV3Backward }
+            #Backward
+            Set-PSReadlineKeyHandler -key DownArrow -ScriptBlock { Invoke-EV3Backward }
         
-        #Right Turn
-        Set-PSReadlineKeyHandler -key RightArrow -ScriptBlock { Invoke-EV3Turn -Direction Right }
+            #Right Turn
+            Set-PSReadlineKeyHandler -key RightArrow -ScriptBlock { Invoke-EV3Turn -Direction Right }
         
-        #Left turn
-        Set-PSReadlineKeyHandler -key LeftArrow -ScriptBlock { Invoke-EV3Turn -Direction Left }
-    
-    }
-    
-    Function Invoke-EV3Forward {
-        param(
-            [int] $Steps = 140
-        )
-        Invoke-EV3StepMotor -OutputPort "B" -Speed 100 -Steps $Steps 
-        Invoke-EV3StepMotor -OutputPort "C" -Speed 100 -Steps $Steps 
-    }
-    
-    Function Invoke-EV3Backward {
-        param(
-            [int] $Steps = 140
-        )
-        Invoke-EV3StepMotor -OutputPort "B" -Speed -100 -Steps $Steps 
-        Invoke-EV3StepMotor -OutputPort "C" -Speed -100 -Steps $Steps 
-    }
-    
-    Function Invoke-EV3Turn {
-        param(
-            [String] $Direction, #TODO Add validate script
-            [int] $Steps = 140
-        )
-    
-        switch($Direction) {
-            "Left" {
-                Invoke-EV3StepMotor -OutputPort "B" -Speed -100 -Steps $Steps 
-                Invoke-EV3StepMotor -OutputPort "C" -Speed 100 -Steps $Steps 
-                break
-            }
-            "Right"{
-                Invoke-EV3StepMotor -OutputPort "B" -Speed -100 -Steps $Steps 
-                Invoke-EV3StepMotor -OutputPort "C" -Speed 100 -Steps $Steps 
-                break
-            }
-        }
-    
-    }
-    
-    Function ConvertTo-Ev3Steps {
-        param(
-            [Parameter(Mandatory=$true,
-                       ValueFromPipelineByPropertyName=$true,
-                       ValueFromPipeline= $true,
-                       Position=0)]
-            $Value,    
-            [Parameter(Mandatory=$false,
-                       ValueFromPipelineByPropertyName=$true,
-                       ValueFromPipeline= $true,
-                       Position=1)]
-                       [ValidateSet("Centimeters","Inches")]
-        $Type = "Centimeters" 
-        )
-    
-        switch($Type) {
-            "Centimeters" {
-                return $Value * 35
-            }
-    
-            "Inches" {
-                return $Value * 89
-            }
+            #Left turn
+            Set-PSReadlineKeyHandler -key LeftArrow -ScriptBlock { Invoke-EV3Turn -Direction Left }
         }
     }
+}
+    
+Function Invoke-EV3Forward {
+    param(
+        [int] $Steps = 140,
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+    )
+    Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed 100 -Steps $Steps 
+    Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed 100 -Steps $Steps 
+}
+    
+Function Invoke-EV3Backward {
+    param(
+        [int] $Steps = 140,
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+    )
+    Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed -100 -Steps $Steps 
+    Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed -100 -Steps $Steps 
+}
+    
+Function Invoke-EV3Turn {
+    param(
+        [String] $Direction, #TODO Add validate script
+        [int] $Steps = 140,
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+    )
+    
+    switch ($Direction) {
+        "Left" {
+            Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed -100 -Steps $Steps 
+            Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed 100 -Steps $Steps 
+            break
+        }
+        "Right" {
+            Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed -100 -Steps $Steps 
+            Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed 100 -Steps $Steps 
+            break
+        }
+    }
+    
+}
+    
+Function ConvertTo-Ev3Steps {
+    param(
+        [Parameter(Mandatory = $true,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 0)]
+        $Value,    
+        [Parameter(Mandatory = $false,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 1)]
+        [ValidateSet("Centimeters", "Inches")]
+        $Type = "Centimeters",
+        [Parameter(Mandatory = $false,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 2)]
+        [ValidateSet("GRIPP3R")] #Current only supports gripper robot
+        $RobotType = "GRIPP3R"
+    )
+      
+    switch ($RobotType) {
+        "GRIPP3R" {
+            switch ($Type) {
+                "Centimeters" {
+                    return $Value * 35
+                }
+        
+                "Inches" {
+                    return $Value * 89
+                }
+            }
+        }
+    }
+
+       
+}
     
     
     
