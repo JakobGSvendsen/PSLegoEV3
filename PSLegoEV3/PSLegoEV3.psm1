@@ -11,7 +11,7 @@ Function Connect-EV3 {
     param(
         $IPAddress = "192.168.2.8"    
     )
-    $IPAddress = "192.168.2.8"    
+    #$IPAddress = "192.168.2.8"    
     #Init Robot
 
     #Dev hardcoded dll
@@ -20,7 +20,7 @@ Function Connect-EV3 {
     
     $com = new-object Lego.Ev3.NetCore.NetworkCommunication -ArgumentList $IPAddress
     $script:brick = new-object Lego.Ev3.Core.Brick -ArgumentList $com, $true
-    $result = $brick.ConnectAsync().Result
+    $result = $brick.ConnectAsync()
 
     While ($result.Status -eq "WaitingForActivation") {
         Start-Sleep -Milliseconds 100
@@ -45,8 +45,23 @@ Function Invoke-EV3StepMotor {
         [int] $RampDownSteps = 0,
         [Boolean] $Brake = $false
     )
-    $script:brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $true); 
+    $script:brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $Brake); 
 }
+
+
+Function Invoke-EV3StopMotor {
+    param(
+        [Parameter(Mandatory = $true,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 0)]
+        [Lego.Ev3.Core.OutputPort] $OutputPort = "A",
+        [Boolean] $Brake = $false
+    )
+
+    $script:brick.DirectCommand.StopMotorAsync($OutputPort, $Brake)
+}
+
 
 #Invoke-EV3StepMotor -OutputPort "B" -Speed 100 -Steps 140 
 #Invoke-EV3StepMotor -OutputPort "C" -Speed 100 -Steps 140 
@@ -75,6 +90,12 @@ Function Start-EV3LiveControl {
         
             #Left turn
             Set-PSReadlineKeyHandler -key LeftArrow -ScriptBlock { Invoke-EV3Turn -Direction Left }
+
+            #Grab
+            Set-PSReadlineKeyHandler -key PageUp -ScriptBlock { Invoke-EV3Gripp3rAction -Action "Grab"  }
+
+            #Release
+            Set-PSReadlineKeyHandler -key PageDown -ScriptBlock { Invoke-EV3Gripp3rAction -Action "Release"  }
         }
     }
 }
@@ -82,8 +103,8 @@ Function Start-EV3LiveControl {
 Function Invoke-EV3Forward {
     param(
         [int] $Steps = 140,
-        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
-        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "C",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "B"
     )
     Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed 100 -Steps $Steps 
     Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed 100 -Steps $Steps 
@@ -92,8 +113,8 @@ Function Invoke-EV3Forward {
 Function Invoke-EV3Backward {
     param(
         [int] $Steps = 140,
-        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
-        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "C",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "B"
     )
     Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed -100 -Steps $Steps 
     Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed -100 -Steps $Steps 
@@ -101,10 +122,15 @@ Function Invoke-EV3Backward {
     
 Function Invoke-EV3Turn {
     param(
-        [String] $Direction, #TODO Add validate script
+        [Parameter(Mandatory = $true,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 1)]
+        [ValidateSet("Left", "Right")]
+        [String] $Direction,
         [int] $Steps = 140,
-        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "B",
-        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "C"
+        [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "C",
+        [Lego.Ev3.Core.OutputPort] $OutputPortRight = "B"
     )
     
     switch ($Direction) {
@@ -114,14 +140,43 @@ Function Invoke-EV3Turn {
             break
         }
         "Right" {
-            Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed -100 -Steps $Steps 
-            Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed 100 -Steps $Steps 
+            Invoke-EV3StepMotor -OutputPort $OutputPortLeft -Speed 100 -Steps $Steps 
+            Invoke-EV3StepMotor -OutputPort $OutputPortRight -Speed -100 -Steps $Steps 
             break
         }
     }
     
 }
+   
+Function Invoke-EV3Gripp3rAction {
+    param(
+        [Parameter(Mandatory = $true,
+            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline = $true,
+            Position = 0)]
+        [ValidateSet("Grab", "Release")]
+        [String] $Action,
+        [int] $Steps = 700,
+        [Lego.Ev3.Core.OutputPort] $OutputPort = "A"
+    )
     
+    switch ($Action) {
+        "Grab" {
+            Invoke-EV3StepMotor -OutputPort $OutputPort -Speed 50 -Steps $Steps 
+            Start-sleep -Seconds 2
+            Invoke-EV3StopMotor -OutputPort $OutputPort
+            break
+        }
+        "Release" {
+            Invoke-EV3StepMotor -OutputPort $OutputPort -Speed -50 -Steps $Steps 
+            Start-sleep -Seconds 2
+            Invoke-EV3StopMotor -OutputPort $OutputPort
+            break
+        }
+    }
+    
+}
+   
 Function ConvertTo-Ev3Steps {
     param(
         [Parameter(Mandatory = $true,
