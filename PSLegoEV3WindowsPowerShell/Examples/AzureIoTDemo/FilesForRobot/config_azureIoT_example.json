@@ -1,0 +1,5 @@
+{
+  "IotHubAddress":"xxxx.azure-devices.net",
+  "DeviceId":"mrrobot",
+  "SharedAccessKey":"xxxxx=="
+}
