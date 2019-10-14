@@ -61,6 +61,7 @@ Function Invoke-EV3StepMotor {
         [int] $RampDownSteps = 0,
         [Boolean] $Brake = $false
     )
+    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
     $script:brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $Brake); 
    
 }
@@ -75,7 +76,7 @@ Function Invoke-EV3StopMotor {
         [Lego.Ev3.Core.OutputPort] $OutputPort,
         [Boolean] $Brake = $false
     )
-
+    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
     $script:brick.DirectCommand.StopMotorAsync($OutputPort, $Brake)
 }
 
@@ -336,7 +337,7 @@ Function Enable-EV3EdgeProtection {
         [Lego.Ev3.Core.InputPort] $InputPort = "One",
         [ScriptBlock] $InvokeScriptBlock
     )
-
+    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
     #$brick.Ports[[Lego.Ev3.Core.InputPort]::One].SetMode([Lego.Ev3.Core.ColorMode]::Color)
     $brick.Ports[$InputPort].SetMode([Lego.Ev3.Core.ColorMode]::Color)
 
