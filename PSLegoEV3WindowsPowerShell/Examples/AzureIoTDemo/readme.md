@@ -58,6 +58,10 @@ python3 CTGlobal_LegoEV3_BaseClient.py config_azureIoT.json
 
 ## Send Commands
 
+Required Module:
+AzureIoT:
+https://www.powershellgallery.com/packages/AzureIoT/1.0.0.5
+
 1. Control to the robot using the foloowing command
 ```
 Import-Module PSLegoEV3WindowsPowerShell -Force
@@ -74,3 +78,37 @@ Invoke-EV3Forward
 #You can also specify device name on each call, good to use if you have multiple robot
 Invoke-EV3Forward -AzureIoTDeviceName "mrrobot"
 ```
+
+# Setup Self Service via SharePoint, Flow and Azure Automation
+
+To enable self serviec you need the following:
+- SharePoint Site
+- Azure Automation Account
+    - Add these modules
+        - AzureIoT
+        - PSLegoEV3WindowsPowerShell (From this repo)
+- Azure IoT Hub Instance
+    - Create a device per robot (example name: mrrobot)
+
+Follow these steps:
+
+- In the automation account add New-RobotFlowIoT.ps1 runbook
+- Copy the connection string from Azure IoT Hub to Azure Automation Asset called "AzureIotConnectionString"
+![](img/connectionstring.png)
+- Create a SharePoint List with the following columns
+    - Title (Rename the default column to Device Name)
+    - Action (Choice) with the following choices
+        - Grab
+        - Release
+    - LengthinCm (integer)
+![](img/sharepointlist.png) 
+- Create a flow to trigger on new items in the list
+    - Use Template: "Start approval when a new item is added"
+    - Add the Azure Automation Create Job Activity to the "if Yes" section
+    - Select the New-RobotFlowIoT runbook
+    - Pass the values to parameters
+        - Device Name (Title) to AzureIoTDeviceName
+        - Action to Action
+        - LengthInCm to LengthInCm
+    - Save the flow
+
