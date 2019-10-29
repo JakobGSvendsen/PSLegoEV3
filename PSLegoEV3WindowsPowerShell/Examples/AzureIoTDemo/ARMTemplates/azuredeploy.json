@@ -1,50 +1,62 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "parameters": {
-		"automationAccountName": { 
-			"type": "string", 
-			"defaultValue": "PSLegoAutomation"
-		},
-    "iotHubName": {
-      "type": "string",
-      "minLength": 3,
-      "metadata": {
-        "description": "Specifies the name of the IoT Hub."
-      }
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "automationAccountName": {
+            "type": "string",
+            "defaultValue": "PSLegoAutomation"
+        },
+        "iotHubName": {
+            "type": "string",
+            "minLength": 3,
+            "metadata": {
+                "description": "Specifies the name of the IoT Hub."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Specifies the location for all resources."
+            }
+        },
+        "skuName": {
+            "type": "string",
+            "defaultValue": "F1",
+            "metadata": {
+                "description": "Specifies the IotHub SKU."
+            }
+        },
+        "capacityUnits": {
+            "type": "int",
+            "minValue": 1,
+            "defaultValue": 1,
+            "metadata": {
+                "description": "Specifies the number of provisioned IoT Hub units. Restricted to 1 unit for the F1 SKU. Can be set up to maximum number allowed for subscription."
+            }
+        }
     },
-    "location": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().location]",
-      "metadata": {
-        "description": "Specifies the location for all resources."
-      }
+    "variables": {
+        "modulesBatch": {
+            "Modules": [
+                {
+                    "name": "AzureIoT",
+                    "moduleURIName": "AzureIoT"
+                },
+                {
+                    "name": "PSLegoEV3WindowsPowerShell",
+                    "moduleURIName": "PSLegoEV3WindowsPowerShell"
+                }
+            ]
+        }
     },
-    "skuName": {
-      "type": "string",
-      "defaultValue": "F1",
-      "metadata": {
-        "description": "Specifies the IotHub SKU."
-      }
-    },
-    "capacityUnits": {
-      "type": "int",
-      "minValue": 1,
-      "defaultValue": 1,
-      "metadata": {
-        "description": "Specifies the number of provisioned IoT Hub units. Restricted to 1 unit for the F1 SKU. Can be set up to maximum number allowed for subscription."
-      }
-    }
-  },
-  "variables": {
-  },
-  "resources": [
-    {
-      "type": "Microsoft.Devices/IotHubs",
-      "apiVersion": "2018-04-01",
-      "name": "[parameters('iotHubName')]",
-      "location": "[parameters('location')]",
-       "properties": {
+    "resources": [
+        {
+            "type": "Microsoft.Devices/IotHubs",
+            "apiVersion": "2018-04-01",
+            "name": "[parameters('iotHubName')]",
+            "location": "[parameters('location')]",
+            "properties": {
                 "operationsMonitoringProperties": {
                     "events": {
                         "None": "None",
@@ -56,7 +68,8 @@
                         "Routes": "None"
                     }
                 },
-                "ipFilterRules": [],
+                "ipFilterRules": [
+                ],
                 "eventHubEndpoints": {
                     "events": {
                         "retentionTimeInDays": 1,
@@ -77,12 +90,17 @@
                 },
                 "routing": {
                     "endpoints": {
-                        "serviceBusQueues": [],
-                        "serviceBusTopics": [],
-                        "eventHubs": [],
-                        "storageContainers": []
+                        "serviceBusQueues": [
+                        ],
+                        "serviceBusTopics": [
+                        ],
+                        "eventHubs": [
+                        ],
+                        "storageContainers": [
+                        ]
                     },
-                    "routes": [],
+                    "routes": [
+                    ],
                     "fallbackRoute": {
                         "name": "$fallback",
                         "source": "DeviceMessages",
@@ -119,69 +137,84 @@
                 },
                 "features": "None"
             },
-      "sku": {
-        "name": "[parameters('skuName')]",
-        "capacity": "[parameters('capacityUnits')]"
-      }
-    },
-    {
-  "name": "[parameters('automationAccountName')]",
-  "type": "Microsoft.Automation/automationAccounts",
-  "apiVersion": "2015-10-31",
-  "location": "[parameters('location')]",
-  "dependsOn":[
-      "[parameters('iotHubName')]"
-  ],
-  "properties": {
-    "sku": {
-      "name": "Free"
-    }
-  }
-    },
-    {
-          "name": "AzureIotConnectionString",
-          "type": "variables",
-          "apiVersion": "2015-10-31",
-          "dependsOn": [
-            "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]"
-          ],
-          "tags": {},
-          "properties": {
-            "description": "Iot Connection String",
-            "isEncrypted": false,
-            "type": "string",
-            "value": "[take(array(listKeys(resourceId('Microsoft.Devices/iotHubs', parameters('iotHubName')), '2018-04-01')),0).secondaryKey]"
-          }
-        },
-    {
-          "name": "New-RobotFlowIoT",
-          "type": "runbooks",
-          "apiVersion": "2015-10-31",
-          "location": "[parameters('location')]",
-          "dependsOn": [
-            "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]",
-            "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'), '/variables/AzureIotConnectionString')]"
-          ],
-          "tags": {},
-          "properties": {
-            "runbookType": "PowerShell",
-            "description": "Made by @JakobGSvendsen",
-            "publishContentLink": {
-              "uri": "[variables('parentRunbookUri')]",
-              "version": "[variables('runbooks').ingestParentRunbook.version]"
+            "sku": {
+                "name": "[parameters('skuName')]",
+                "capacity": "[parameters('capacityUnits')]"
             }
-          }
-        
-}
-  ],
-  "outputs": {
-    "iotHubKeys": {
-      "value": "[listKeys(resourceId('Microsoft.Devices/iotHubs', parameters('iotHubName')), '2018-04-01')]",
-      "type": "object"
-    },
-    "iotHubKeys2": {
-      "value": "[take(array(listKeys(resourceId('Microsoft.Devices/iotHubs', parameters('iotHubName')), '2018-04-01')),0)]",
-      "type": "string"
+        },
+        {
+            "name": "[parameters('automationAccountName')]",
+            "type": "Microsoft.Automation/automationAccounts",
+            "apiVersion": "2015-10-31",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[parameters('iotHubName')]"
+            ],
+            "properties": {
+                "sku": {
+                    "name": "Free"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('automationAccountName'), '/AzureIotConnectionString')]",
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2015-10-31",
+            "dependsOn": [
+                "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]"
+            ],
+            "tags": {
+            },
+            "properties": {
+                "description": "Iot Connection String",
+                "isEncrypted": false,
+                "type": "string",
+                "value": "[concat('''',listKeys(resourceId('Microsoft.Devices/IotHubs/Iothubkeys', parameters('iotHubName'), 'iothubowner'), '2016-02-03').primaryKey, '''')]"
+            }
+        },
+        {
+            "name": "[concat(parameters('automationAccountName'), '/', variables('modulesBatch').Modules[copyIndex()].Name)]",
+            "type": "Microsoft.Automation/automationAccounts/modules",
+            "apiVersion": "2015-10-31",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]"
+            ],
+            "copy": {
+                "name": "solutionCopy",
+                "count": "[length(variables('modulesBatch').Modules)]",
+                "mode": "Serial"
+            },
+            "properties": {
+                "isGlobal": false,
+                "sizeInBytes": 0,
+                "contentLink": {
+                    "uri": "[concat('https://www.powershellgallery.com/api/v2/package/', variables('modulesBatch').Modules[copyIndex()].moduleURIName)]"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('automationAccountName'), '/New-RobotFlowIoT')]",
+            "type": "Microsoft.Automation/automationAccounts/runbooks",
+            "apiVersion": "2015-10-31",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]",
+                "[concat('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'), '/variables/AzureIotConnectionString')]"
+            ],
+            "tags": {
+            },
+            "properties": {
+                "runbookType": "PowerShell",
+                "description": "Made by @JakobGSvendsen",
+                "publishContentLink": {
+                    "uri": "https://raw.githubusercontent.com/JakobGSvendsen/PSLegoEV3/master/PSLegoEV3WindowsPowerShell/Examples/AzureIoTDemo/New-RobotFlowIoT.ps1",
+                    "version": "1.0.0.1"
+                }
+            }
+
+        }
+    ],
+    "outputs": {
     }
-  }
 }
