@@ -90,7 +90,10 @@ To enable self serviec you need the following:
 - Azure IoT Hub Instance
     - Create a device per robot (example name: mrrobot)
 
-Follow these steps:
+Follow these steps to setup the self service frontend:
+
+Below steps is also explained in this video:
+https://youtu.be/Fo_8veVPz8c
 
 - In the automation account add New-RobotFlowIoT.ps1 runbook
 - Copy the connection string from Azure IoT Hub to Azure Automation Asset called "AzureIotConnectionString"
