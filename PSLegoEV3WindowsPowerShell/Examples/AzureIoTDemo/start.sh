@@ -1,0 +1,1 @@
+/usr/bin/python3 /home/robot/CTGlobal_LegoEV3_BaseClient.py /home/robot/config_azureIoT.json

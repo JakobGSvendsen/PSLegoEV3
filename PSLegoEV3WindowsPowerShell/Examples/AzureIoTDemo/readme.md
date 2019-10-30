@@ -54,6 +54,7 @@ python3 CTGlobal_LegoEV3_BaseClient.py <configuration>
 for example:
 ```
 python3 CTGlobal_LegoEV3_BaseClient.py config_azureIoT.json
+
 ```
 
 ## Send Commands
@@ -115,3 +116,17 @@ https://youtu.be/Fo_8veVPz8c
         - LengthInCm to LengthInCm
     - Save the flow
 
+## Start script on boot
+(not working /complete)
+
+sudo nano  /home/robot/start.sh
+sudo chmod 777 /home/robot/start.sh
+
+sudo nano /etc/systemd/system/azureiot.service
+
+
+sudo systemctl daemon-reload
+sudo systemctl enable azureiot.service
+
+check status: 
+sudo systemctl status -l azureiot.service

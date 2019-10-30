@@ -1,0 +1,10 @@
+[Unit]
+Description=LEGO EV3 Azure IoT
+After=multi-user.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/robot/start.sh

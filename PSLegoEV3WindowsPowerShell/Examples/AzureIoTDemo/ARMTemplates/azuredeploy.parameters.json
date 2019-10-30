@@ -4,9 +4,6 @@
     "parameters": {
         "iotHubName": {
             "value": "pslegoev3demo"
-        },
-        "skuName":{
-            "value": "B1"
         }
     }
 }
