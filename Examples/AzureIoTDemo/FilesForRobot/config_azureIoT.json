@@ -1,0 +1,5 @@
+{
+  "IotHubAddress":"ev3dev.azure-devices.net",
+  "DeviceId":"mrrobot",
+  "SharedAccessKey":"dJUXUpzgGDWR8OLHh61v8Q9VOoRoKD7IjJGVxUxAyw8="
+}

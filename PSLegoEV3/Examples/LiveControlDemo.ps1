@@ -1,4 +1,4 @@
-$env:PSModulePath += ";C:\Users\JGS\Documents\GitHub\PSLegoEV3"
+$env:PSModulePath += ";C:\TFS\CTG\PSLegoEV3"
 Import-Module PSLegoEV3 -Force
 
 Connect-EV3 -IPAddress "192.168.0.18"

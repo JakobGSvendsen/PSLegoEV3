@@ -7,6 +7,17 @@
 #TODO Add Bluebooth and usb communication
 # Add multiple parameter sets depending on selected communications type
 
+enum Color {
+    NoColor
+    Black
+    Blue
+    Green
+    Yellow
+    Red
+    White
+    Brown
+}
+
 Function Connect-EV3 {
     param(
         [Parameter(Mandatory = $true, 
@@ -61,7 +72,7 @@ Function Invoke-EV3StepMotor {
         [int] $RampDownSteps = 0,
         [Boolean] $Brake = $false
     )
-    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
+    if ($global:Mode -eq "azureiot") { throw "Not supported yet in Azure IoT mode" }
     $script:brick.DirectCommand.StepMotorAtPowerAsync($OutputPort, $Speed, $RampUpSteps, $Steps, $RampDownSteps, $Brake); 
    
 }
@@ -69,14 +80,29 @@ Function Invoke-EV3StepMotor {
 
 Function Invoke-EV3StopMotor {
     param(
-        [Parameter(Mandatory = $true,
+        [Parameter(Mandatory = $false,
             ValueFromPipelineByPropertyName = $true,
             ValueFromPipeline = $true,
             Position = 0)]
         [Lego.Ev3.Core.OutputPort] $OutputPort,
         [Boolean] $Brake = $false
     )
-    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
+    if ($script:Mode -eq "azureiot") { 
+        $commands = @{
+            leftStop  = $true 
+            rightStop = $true
+               
+        }
+        
+        #region send message from Cloud
+        $cloudMessageParams = @{
+            deviceId      = $script:AzureIoTDeviceName
+            messageString = $commands | convertto-json
+            cloudClient   = $script:azureIoTCloudClient
+        }
+        Send-IoTCloudMessage @cloudMessageParams
+        return
+    }
     $script:brick.DirectCommand.StopMotorAsync($OutputPort, $Brake)
 }
 
@@ -120,7 +146,8 @@ Function Invoke-EV3Forward {
         [Lego.Ev3.Core.OutputPort] $OutputPortLeft = "C",
         [Lego.Ev3.Core.OutputPort] $OutputPortRight = "B",
         [String] $AzureIoTDeviceName,
-        [int] $Speed = 100
+        [int] $Speed = 100,
+        [switch]$isForever
     )
     switch ($script:Mode) {
         "local" {
@@ -130,13 +157,24 @@ Function Invoke-EV3Forward {
         }
         "azureiot" {
             $duration = $Steps * 1 #duration in seconds
-            $commands = @{
-                leftSpeed     = 1000 # 100% speed
-                leftDuration  = $duration 
-                rightSpeed    = 1000
-                rightDuration = $duration
-               
+            if (!$isForever) {
+                $commands = @{
+                    leftSpeed     = $Speed * 10 # 100% speed
+                    leftDuration  = $duration 
+                    rightSpeed    = $Speed * 10
+                    rightDuration = $duration
+                }
             }
+            else {
+                $commands = @{
+                    leftSpeed    = $Speed * 10 # 100% speed
+                    leftForever  = $true 
+                    rightSpeed   = $Speed * 10
+                    rightForever = $true
+                   
+                }
+            }
+            
             #region send message from Cloud
             $cloudMessageParams = @{
                 deviceId      = $script:AzureIoTDeviceName
@@ -195,13 +233,13 @@ Function Invoke-EV3Turn {
     
     switch ($Direction) {
         "Left" {
-            $LeftSpeed = -100
-            $RightSpeed = 100
+            $LeftSpeed = -50
+            $RightSpeed = 50
             break
         }
         "Right" {
-            $LeftSpeed = 100
-            $RightSpeed = -100
+            $LeftSpeed = 50
+            $RightSpeed = -50
             break
         }
     }
@@ -232,6 +270,52 @@ Function Invoke-EV3Turn {
     
 }
    
+
+Function Invoke-EV3SayGoodbye {
+
+
+    switch ($script:Mode) {
+        "local" {
+            throw "Not implemented in local" 
+        }
+        "azureiot" {
+            $commands = @{
+                sayGoodbye = $true
+            }
+            #region send message from Cloud
+            $cloudMessageParams = @{
+                deviceId      = $script:AzureIoTDeviceName
+                messageString = $commands | convertto-json
+                cloudClient   = $script:azureIoTCloudClient
+            }
+            Send-IoTCloudMessage @cloudMessageParams
+        }
+    } #switch ($script:Mode) {
+    
+}
+
+Function Invoke-EV3PlaySound {
+
+
+    switch ($script:Mode) {
+        "local" {
+            throw "Not implemented in local" 
+        }
+        "azureiot" {
+            $commands = @{
+                playSound = 'mrbrick.wav'
+            }
+            #region send message from Cloud
+            $cloudMessageParams = @{
+                deviceId      = $script:AzureIoTDeviceName
+                messageString = $commands | convertto-json
+                cloudClient   = $script:azureIoTCloudClient
+            }
+            Send-IoTCloudMessage @cloudMessageParams
+        }
+    } #switch ($script:Mode) {
+    
+}
 Function Invoke-EV3Gripp3rAction {
     param(
         [Parameter(Mandatory = $true,
@@ -337,7 +421,7 @@ Function Enable-EV3EdgeProtection {
         [Lego.Ev3.Core.InputPort] $InputPort = "One",
         [ScriptBlock] $InvokeScriptBlock
     )
-    if($global:Mode -eq "azureiot"){ throw "Not supported yet in Azure IoT mode"}
+    if ($global:Mode -eq "azureiot") { throw "Not supported yet in Azure IoT mode" }
     #$brick.Ports[[Lego.Ev3.Core.InputPort]::One].SetMode([Lego.Ev3.Core.ColorMode]::Color)
     $brick.Ports[$InputPort].SetMode([Lego.Ev3.Core.ColorMode]::Color)
 
@@ -370,3 +454,87 @@ Function Enable-EV3EdgeProtection {
 }
     
     
+Function Wait-EV3Color {
+   
+    <#
+            .SYNOPSIS
+            Receives a message from the device to cloud.
+            .DESCRIPTION
+            See the Synopsis.
+            .EXAMPLE
+            $message = Receive-IoTDeviceMessage -iotConnString "HostName=myIotHub.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=="
+        #>
+    [cmdletbinding()]
+    param(
+        $iotConnString,
+        [Color]$color,
+        [switch]$any
+    )
+    $eventHubClient = [Microsoft.ServiceBus.Messaging.EventHubClient]::CreateFromConnectionString($iotConnString, "messages/events")    #$eventHubPartitions = $eventHubClient.GetRuntimeInformation().PartitionIds
+    
+    $partition = 1
+    #foreach ($partition in $eventHubPartitions[1]) {
+    if ($null -ne $eventHubReceiver) { $eventHubReceiver.Close() }
+    $eventHubReceiver = $eventHubClient.GetDefaultConsumerGroup().CreateReceiver($partition, [DateTime]::UtcNow)
+ 
+    while ($true) {
+         
+        $asyncOperation = $eventHubReceiver.ReceiveAsync(1000)
+        $eventData = $asyncOperation.Result
+        $message = $null
+        if ($null -ne $eventData -and $eventData.count -eq 1) {
+            $message = [System.Text.Encoding]::UTF8.GetString($eventData.GetBytes())
+            "Color: {0}" -f [Color]$message
+        }
+        if ($any -or $message -eq [int]$color) { 
+            $eventHubReceiver.Close()
+            return
+        }
+                    
+        #Invoke-EV3StopMotor  }
+        Start-Sleep -Milliseconds 50
+    }
+   
+    # }
+}
+
+function  Set-EV3RestrictedMode {
+    $commands = @{
+        restrictedMode = 1
+    }
+    #region send message from Cloud
+    $cloudMessageParams = @{
+        deviceId      = $script:AzureIoTDeviceName
+        messageString = $commands | convertto-json
+        cloudClient   = $script:azureIoTCloudClient
+    }
+    Send-IoTCloudMessage @cloudMessageParams
+
+    
+
+}
+
+function Clear-EV3Queue {
+    param(
+        $iotConnString
+    )
+    $deviceId      = $script:AzureIoTDeviceName
+
+       $eventHubClient = [Microsoft.ServiceBus.Messaging.EventHubClient]::CreateFromConnectionString($iotConnString, "messages/events")    #$eventHubPartitions = $eventHubClient.GetRuntimeInformation().PartitionIds
+    
+   $partition = 1
+   #foreach ($partition in $eventHubPartitions[1]) {
+   if ($null -ne $eventHubReceiver) { $eventHubReceiver.Close() }
+   $eventHubReceiver = $eventHubClient.GetDefaultConsumerGroup().CreateReceiver($partition, [DateTime]::UtcNow.AddDays(-1))
+
+   do {
+       $eventData = $null
+       $asyncOperation = $eventHubReceiver.ReceiveAsync(100)
+       $eventData = $asyncOperation.Result
+       $eventData
+       #Invoke-EV3StopMotor  }
+       Start-Sleep -Milliseconds 50
+   } while ($eventData)
+}
+
+

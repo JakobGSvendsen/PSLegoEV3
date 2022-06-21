@@ -5,20 +5,21 @@
 
 # Mqtt Support https://www.eclipse.org/paho/clients/python/
 # pip3 install paho-mqtt
-
+from ev3dev.ev3 import *
 import paho.mqtt.client as mqtt
 import time
 import helper
 import sys
 import json
-import ev3dev.ev3 as ev3
 import threading
-
+restrictedMode = 0
 sensor = hubAddress = deviceId = sharedAccessKey = owmApiKey = owmLocation = None
 
-grab_motor = ev3.Motor('outA')
-left_motor = ev3.Motor('outB')
-right_motor = ev3.Motor('outC')
+grab_motor = Motor('outA')
+left_motor = Motor('outB')
+right_motor = Motor('outC')
+
+spkr = Sound()
 
 def config_defaults():
     global sensor, hubAddress, deviceId, sharedAccessKey, owmApiKey, owmLocation
@@ -53,9 +54,14 @@ def on_message(client, userdata, msg):
     print("{0} - {1} ".format(msg.topic, str(msg.payload)))
     # Do this only if you want to send a reply message every time you receive one
     # client.publish("devices/mqtt/messages/events", "REPLY", qos=1)
+
     try:
+        global restrictedMode
         print(msg.topic, msg.payload)
         state = json.loads(msg.payload.decode("utf-8"))
+        
+        if restrictedMode is not None and restrictedMode == 1 and "isPublic" in state.keys()  and state["isPublic"] == 1:
+            return 
         if 'leftDuration' in state:
             print("Right:", state['leftDuration'])
             print("Speed:", state['leftSpeed'])
@@ -68,11 +74,26 @@ def on_message(client, userdata, msg):
             print("grab:", state['grabDuration'])
             print("Speed:", state['grabSpeed'])
             grab_motor.run_timed(speed_sp = state['grabSpeed'],time_sp = state['grabDuration'])
+        if 'leftForever' in state:
+            left_motor.run_forever(speed_sp = state['leftSpeed'])
+        if 'leftStop' in state:
+            left_motor.stop()
+        if 'rightForever' in state:
+            right_motor.run_forever(speed_sp = state['rightSpeed'])
+        if 'rightStop' in state:
+            right_motor.stop()
+        if  'sayGoodbye' in state:
+            spkr.speak('Goodbye')
+        if  'playSound' in state:
+            spkr.play('mrbrick.wav')
+        if  'restrictedMode' in state:
+            restrictedMode = state['restrictedMode']
+        
     except:
-        print("Failed handling command: ", sys.exc_info()[0]);
+        print("Failed handling command: ", sys.exc_info());#[0]);
 
 def on_publish(client, userdata, mid):
-    print("Message {0} sent from {1}".format(str(mid), deviceId))
+    print("Message {0} sent from {1} data: {2}".format(str(mid), deviceId, userdata))
 
 
 def on_disconnect(client, userdata, rc):
@@ -80,11 +101,37 @@ def on_disconnect(client, userdata, rc):
         print("Disconnected: " + str(rc))
 
 def publish():
+    lastColor = 0
     while True:
         try:
-           # client.publish(help.hubTopicPublish, 100)            
-            time.sleep(4)
+            cl = ColorSensor()
+            # Put the color sensor into COL-REFLECT mode
+            # to measure reflected light intensity.
+            # In this mode the sensor will return a value between 0 and 100
+            cl.mode='COL-COLOR'
+            newColor =  cl.value()
+            if newColor != lastColor:
+                client.publish(help.hubTopicPublish,newColor) 
+                lastColor = newColor           
+            time.sleep(0.1)
         
+                    
+            #spkr = Sound()
+
+            # Play 'bark.wav':
+            #spkr.play_file('bark.wav')
+
+            # Introduce yourself:
+            #spkr.speak('Goodbye')
+
+            # Play a small song
+            # spkr.play_song((
+            #     ('D4', 'e3'),
+            #     ('D4', 'e3'),
+            #     ('D4', 'e3'),
+            #     ('G4', 'h'),
+            #     ('D5', 'h')
+            # ))
         except KeyboardInterrupt:
             print("IoTHubClient sample stopped")
             return
@@ -92,6 +139,9 @@ def publish():
         except:
             print("Unexpected error")
             time.sleep(4)
+
+
+
 
 config_load()
 
