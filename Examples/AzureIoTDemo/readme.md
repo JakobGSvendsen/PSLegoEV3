@@ -27,6 +27,10 @@ Install it via this command
 sudo pip3 install paho-mqtt
 ```
 
+https://ev3dev-lang.readthedocs.io/projects/python-ev3dev/en/ev3dev-stretch/faq.html
+sudo apt-get update
+sudo apt-get install --only-upgrade python3-ev3dev2 micropython-ev3dev2
+
 # Setup
 
 ## Azure IoT Hub
@@ -130,3 +134,4 @@ sudo systemctl enable azureiot.service
 
 check status: 
 sudo systemctl status -l azureiot.service
+https://sites.google.com/site/ev3devpython/
